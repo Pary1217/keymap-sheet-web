@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>PC 版との照合</title>
+</head>
+<body>
+<h1>PC 版(Python)との照合</h1>
+<p>tests/expected.json は PC 版で作る(リポジトリには入れない)。全キーコードの表示と、Keyball44 の配列の解析を比べる。</p>
+<pre id="out">確かめています…</pre>
+<script type="module">
+import * as keycodes from "../js/keycodes.js";
+import * as kle from "../js/kle.js";
+import { BUILTIN } from "../js/device.js";
+
+const out = document.getElementById("out");
+const exp = await (await fetch("expected.json")).json();
+const lines = [];
+const fmt = (lb) => `${lb.tap}|${lb.hold}|${lb.layer === null ? "None" : lb.layer}|${lb.kind}|${lb.action}`;
+for (const jis of [true, false]) {
+  for (const isNew of [true, false]) {
+    for (let code = 0; code < 65536; code++) lines.push(fmt(keycodes.label(code, jis, isNew, keycodes.KEYBALL_KB, false)));
+  }
+}
+for (let code = 0x7E00; code < 0x8000; code++) lines.push(fmt(keycodes.label(code, true, true, keycodes.KEYBALL_KB, true)));
+
+let bad = 0;
+const examples = [];
+for (let i = 0; i < Math.max(lines.length, exp.labels.length); i++) {
+  if (lines[i] !== exp.labels[i]) {
+    bad++;
+    if (examples.length < 20) examples.push(`#${i} (0x${(i % 65536).toString(16)}): JS=${lines[i]} / PC=${exp.labels[i]}`);
+  }
+}
+
+const res = await fetch(BUILTIN[0].url).catch((e) => ({ ok: false, status: e.message }));
+if (!res.ok) {
+  out.textContent = `Keyball44 の配列を GitHub から読めませんでした(${res.status})
+RESULT NG`;
+  throw new Error("fetch failed");
+}
+const d = await res.json();
+let kbad = 0;
+const kex = [];
+for (let opt = 0; opt < 4; opt++) {
+  const js = kle.parse(d, opt).map((k) => [k.row, k.col, k.x, k.y, k.w, k.h, k.r, k.rx, k.ry]);
+  const py = exp.kle[opt];
+  if (js.length !== py.length) { kbad++; kex.push(`opt ${opt}: 数 JS=${js.length} PC=${py.length}`); continue; }
+  js.forEach((a, i) => {
+    if (a.some((v, j) => Math.abs(v - py[i][j]) > 1e-6)) { kbad++; if (kex.length < 10) kex.push(`opt ${opt}: JS=${a} PC=${py[i]}`); }
+  });
+}
+out.textContent = `キーコード: ${lines.length} 件中 ${bad} 件ちがう\n${examples.join("\n")}\n` +
+  `配列: ${kbad} 件ちがう\n${kex.join("\n")}\nRESULT ${bad === 0 && kbad === 0 ? "OK" : "NG"}`;
+</script>
+</body>
+</html>

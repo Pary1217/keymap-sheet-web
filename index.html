@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>キーマップ チートシート</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<script src="vendor/xzwasm.min.js"></script>
+</head>
+<body>
+<header>
+  <h1>キーマップ チートシート</h1>
+  <p>VIA / Vial のキーボードを USB でつないで、今のキーマップを読み、レイヤーごとのチートシートを作ります。
+     4 でキーマップを変えることもできます。読んだキーマップは、このブラウザの中だけに保存します(どこにも送りません)。</p>
+  <p id="unsupported" class="warn" hidden>このブラウザではキーボードとやりとりできません。Chrome か Edge で開いてください
+     (保存した JSON からチートシートを作ることはできます)。</p>
+  <details class="notice">
+    <summary>お使いになる前に(大事な注意)</summary>
+    <ul>
+      <li>このページは個人が作った非公式のツールです。各キーボードのメーカー・販売店や、VIA・Vial・Remap の開発元が作ったり認めたりしたものではありません。製品名・ツール名は、使えるキーボードや仕組みを説明するために書いています。</li>
+      <li>このページは USB ケーブルでつないだときだけ使えます(キーボードが無線で設定できる場合でも、このページは有線だけです)。</li>
+      <li>変えるのはキーの割り当てだけで、ファームウェアは書き換えません。変える前に、今のキーの割り当てを「(変更前)」として保存します。抜けたり接続が切れたりすると、一部のキーだけが変わった状態になることがあります。変えたあとは、実際にキーを押して確かめてください。</li>
+      <li>元に戻せるのは、このページが保存したキーの割り当てだけです。キーボードのほかの設定(コンボ、タップダンス、マクロ、ライトなど)や、ファームウェアの版が違うときの復元はできません。ファームウェアを更新すると、設定が初期化されたり、保存した設定を読み込めなくなったりする場合があります。</li>
+      <li>動き方や元に戻せること、メーカー保証への影響は約束できません。ここに書いたことを確かめたうえで、ご自身の判断でお使いください。</li>
+    </ul>
+  </details>
+</header>
+
+<main>
+  <section>
+    <h2>1. キーボードを読む</h2>
+    <p class="hint">USB ケーブルでつないでください(このページは有線だけで使えます)。
+       Vial / VIA / Remap のサイトを開いていたら、先に閉じてください(同時には使えません)。</p>
+    <div class="row">
+      <button id="read" class="primary">キーボードをつないで読む</button>
+      <button id="demo">見本(Keyball44)を入れる</button>
+      <label class="file">JSON を読み込む<input id="import" type="file" accept=".json,application/json" multiple></label>
+    </div>
+    <progress id="progress" max="1" value="0" hidden></progress>
+    <p id="status" class="status" role="status"></p>
+  </section>
+
+  <section>
+    <h2>2. 保存したキーマップ</h2>
+    <p class="hint">チートシートにするものに印を付けてください。PC 版のアプリで保存した JSON も読み込めます。</p>
+    <ul id="saved" class="saved"></ul>
+  </section>
+
+  <section>
+    <h2>3. チートシートを作る</h2>
+    <div class="row">
+      <label><input id="jis" type="checkbox" checked> JIS 配列(日本語キーボード)の文字で書く</label>
+    </div>
+    <div class="row">
+      <button id="build" class="primary">チートシートを作る</button>
+      <button id="print" disabled>印刷 / PDF に保存</button>
+    </div>
+    <p class="hint">PDF にするには、印刷の画面で「送信先: PDF に保存」、用紙 A4・横、余白「なし」を選んでください。</p>
+  </section>
+
+  <section>
+    <h2>4. キーマップを変える</h2>
+    <p class="hint">キーボードを選ぶと、まず今のキーマップを読んで「(変更前)」として 2 に保存します。
+       キーを押して新しいキーを選ぶと、すぐキーボードに書き込みます(1 キーごとに読み直して確かめます)。
+       「変更前に戻す」で、いつでも元に戻せます。書き込みモードのキー(QK_BOOT)は置けないようにしています。</p>
+    <div class="row">
+      <button id="edit-start" class="primary">キーボードをつないで変更を始める</button>
+    </div>
+    <p id="edit-status" class="status" role="status"></p>
+    <div id="editor" hidden>
+      <div id="edit-layers" class="row tabs"></div>
+      <div id="edit-board"></div>
+      <p id="edit-selected"></p>
+      <div id="edit-picker" hidden>
+        <h3>一覧から選ぶ</h3>
+        <div id="edit-catalog"></div>
+        <h3>組み立てる(レイヤーキー・長押し)</h3>
+        <div class="row">
+          <select id="edit-kind">
+            <option value="mo">押している間だけレイヤー(MO)</option>
+            <option value="lt">長押しでレイヤー、押すとキー(LT)</option>
+            <option value="mt">長押しで修飾キー、押すとキー(MT)</option>
+            <option value="tg">押すたびにレイヤーを切り替え(TG)</option>
+            <option value="to">レイヤーへ移る(TO)</option>
+            <option value="tt">長押しでレイヤー、連打で切り替え(TT)</option>
+            <option value="osl">次の 1 打だけレイヤー(OSL)</option>
+            <option value="df">基本のレイヤーを変える(DF)</option>
+            <option value="mods">修飾キーと同時に押す(例: Ctrl+C)</option>
+            <option value="osm">次の 1 打だけ修飾キー(OSM)</option>
+          </select>
+          <label id="edit-f-layer">レイヤー <select id="edit-layer-n"></select></label>
+          <label id="edit-f-tap">押したときのキー <select id="edit-tap"></select></label>
+          <span id="edit-f-mods">
+            <label><input id="edit-mod-Ctrl" type="checkbox"> Ctrl</label>
+            <label><input id="edit-mod-Shift" type="checkbox"> Shift</label>
+            <label><input id="edit-mod-Alt" type="checkbox"> Alt</label>
+            <label><input id="edit-mod-Win" type="checkbox"> Win</label>
+            <label><input id="edit-mod-right" type="checkbox"> 右側のキー</label>
+          </span>
+          <button id="edit-apply" class="primary">このキーにする</button>
+        </div>
+        <h3>キーコードを数で入れる</h3>
+        <div class="row">
+          <input id="edit-hex" type="text" placeholder="0x0004" size="8">
+          <button id="edit-hex-apply">このキーにする</button>
+        </div>
+      </div>
+      <div class="row">
+        <span id="edit-changed" class="hint"></span>
+        <button id="edit-restore">変更前に戻す</button>
+        <button id="edit-end">変更を終わる</button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div id="pages"></div>
+
+<footer>
+  <p>このページのプログラムは MIT ライセンスです(<a href="https://github.com/Pary1217/keymap-sheet-web">ソース</a>)。
+     Keyball44 の配列は、使うときに <a href="https://github.com/Yowkees/keyball">Yowkees/keyball</a> の via.json(GPL-3.0)を GitHub から読みます(このページには入れていません)。
+     xz の展開には <a href="https://github.com/SteveSanderson/xzwasm">xzwasm</a>(MIT)を使っています。文字は Google Fonts の BIZ UDPGothic です。</p>
+</footer>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
